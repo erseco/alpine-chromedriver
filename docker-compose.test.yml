@@ -1,0 +1,13 @@
+---
+services:
+  app:
+    build: .
+    ports:
+      - "9515:9515"
+  sut:
+    image: alpine:3.22
+    depends_on:
+      - app
+    command: ["/tmp/run_tests.sh"]
+    volumes:
+      - "./run_tests.sh:/tmp/run_tests.sh:ro"
