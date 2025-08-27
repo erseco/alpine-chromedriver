@@ -107,17 +107,132 @@ jobs:
           docker compose version
           docker compose --file docker-compose.test.yml up --exit-code-from sut --timeout 10 --build
 
-      # Build and Push to both registries in one step
-      - name: Build and push
+      # # Build and Push to both registries in one step
+      # - name: Build and push
+      #   if: github.event_name != 'pull_request'
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     platforms: linux/amd64,linux/arm/v7,linux/arm64
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+
+
+      # 1) Build all (local, per-arch) — do NOT push "fat" images
+      - name: Build all (local)
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Use version when tagging; fallback for non-tag builds (e.g., beta on main)
+          VER="${VERSION:-beta-${GITHUB_SHA::12}}"
+
+          echo ">> Building fat images locally for ${VER}..."
+          docker buildx build --platform linux/amd64  -t ghcr.io/${{ github.repository }}:${VER}-amd64  --load .
+          docker buildx build --platform linux/arm64  -t ghcr.io/${{ github.repository }}:${VER}-arm64  --load .
+          docker buildx build --platform linux/arm/v7 -t ghcr.io/${{ github.repository }}:${VER}-armv7  --load .
+
+      # 2) Slim per-arch (overwrite) — enable HTTP probes to Chromedriver on :9515/status
+      - name: Slim all (overwrite with HTTP probes)
+        if: github.event_name != 'pull_request'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          VER="${VERSION:-beta-${GITHUB_SHA::12}}"
+
+          echo ">> Installing SlimToolkit (docker-slim) binary..."
+          SLIM_VERSION="1.41.7"  # pin; change if you need a newer release
+          curl -fsSL -o /tmp/slim.tgz "https://github.com/slimtoolkit/slim/releases/download/${SLIM_VERSION}/dist_linux.tar.gz"
+          tar -xzf /tmp/slim.tgz -C /tmp
+          # Find and install docker-slim binary
+          SLIM_BIN="$(find /tmp -type f -name 'docker-slim' | head -n1)"
+          sudo install -m 0755 "$SLIM_BIN" /usr/local/bin/docker-slim
+
+          echo ">> Slimming amd64 (HTTP probe to :9515/status)..."
+          docker-slim build \
+            --target "ghcr.io/${{ github.repository }}:${VER}-amd64" \
+            --overwrite true \
+            --http-probe true \
+            --http-probe-ports 9515 \
+            --http-probe-cmd "http://localhost:9515/status" \
+            --publish-port 9515
+
+          echo ">> Slimming arm64 (HTTP probe to :9515/status)..."
+          docker-slim build \
+            --target "ghcr.io/${{ github.repository }}:${VER}-arm64" \
+            --overwrite true \
+            --http-probe true \
+            --http-probe-ports 9515 \
+            --http-probe-cmd "http://localhost:9515/status" \
+            --publish-port 9515
+
+          echo ">> Slimming armv7 (HTTP probe to :9515/status)..."
+          docker-slim build \
+            --target "ghcr.io/${{ github.repository }}:${VER}-armv7" \
+            --overwrite true \
+            --http-probe true \
+            --http-probe-ports 9515 \
+            --http-probe-cmd "http://localhost:9515/status" \
+            --publish-port 9515
+
+      # 3) Push slim per-arch + create multi-arch manifests for ALL metadata tags (same tags as before)
+      - name: Push (per-arch) + Multi-arch manifests (GHCR & Docker Hub)
+        if: github.event_name != 'pull_request'
+        env:
+          REPO_GHCR: ghcr.io/${{ github.repository }}
+          REPO_DH:   docker.io/${{ github.repository }}
+          VERSION:   ${{ steps.meta.outputs.version }}
+          TAGS:      ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          VER="${VERSION:-beta-${GITHUB_SHA::12}}"
+
+          echo ">> Pushing per-arch slim images to GHCR..."
+          for A in amd64 arm64 armv7; do
+            docker push "${REPO_GHCR}:${VER}-${A}"
+          done
+
+          echo ">> Mirroring per-arch slim images to Docker Hub..."
+          for A in amd64 arm64 armv7; do
+            docker tag  "${REPO_GHCR}:${VER}-${A}" "${REPO_DH}:${VER}-${A}"
+            docker push "${REPO_DH}:${VER}-${A}"
+          done
+
+          echo ">> Creating multi-arch manifests for every tag from metadata-action..."
+          echo "$TAGS" | tr ' ' '\n' | sed '/^\s*$/d' > /tmp/tags_list
+
+          while read -r FULLTAG; do
+            # FULLTAG examples:
+            #   ghcr.io/owner/repo:3.22.0
+            #   docker.io/owner/repo:latest
+            REG="${FULLTAG%%/*}"           # ghcr.io or docker.io
+            REST="${FULLTAG#*/}"           # owner/repo:tag
+            REPO="${REST%:*}"              # owner/repo
+            TAG="${REST#*:}"               # tag (e.g., 3.22.0, 3.22, latest, beta)
+
+            SRC_AMD64="${REG}/${REPO}:${VER}-amd64"
+            SRC_ARM64="${REG}/${REPO}:${VER}-arm64"
+            SRC_ARMV7="${REG}/${REPO}:${VER}-armv7"
+
+            echo ">> Manifest ${REG}/${REPO}:${TAG}"
+            docker manifest create "${REG}/${REPO}:${TAG}" \
+              "${SRC_AMD64}" "${SRC_ARM64}" "${SRC_ARMV7}" || true
+
+            docker manifest annotate "${REG}/${REPO}:${TAG}" "${SRC_AMD64}" --os linux --arch amd64 || true
+            docker manifest annotate "${REG}/${REPO}:${TAG}" "${SRC_ARM64}" --os linux --arch arm64 || true
+            docker manifest annotate "${REG}/${REPO}:${TAG}" "${SRC_ARMV7}" --os linux --arch arm  || true
+
+            docker manifest push "${REG}/${REPO}:${TAG}"
+          done < /tmp/tags_list
+
+          echo ">> Done. Published ONLY slim images under your usual tags."
+
+
+
 
       # Run Trivy vulnerability scanner ── only tags on main
       - name: Run Trivy vulnerability scanner
@@ -138,5 +253,4 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           short-description: ${{ github.event.repository.description }}
-
 
