@@ -15,7 +15,7 @@ Repository: [https://github.com/erseco/alpine-chromedriver](https://github.com/e
 * Includes both Chromium and ChromeDriver
 * Small Docker image size
 * Runs under non-root user (`nobody`)
-* Multi-arch support (amd64, arm64, …)
+* Multi-arch support (amd64, arm64)
 * Ready for Selenium, Puppeteer, Playwright or direct WebDriver usage
 * Uses `dumb-init` to properly handle signals and avoid zombie processes
 * Healthcheck to validate ChromeDriver is responding

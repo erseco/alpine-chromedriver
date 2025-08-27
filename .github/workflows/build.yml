@@ -115,7 +115,7 @@ jobs:
       #     context: .
       #     push: true
       #     tags: ${{ steps.meta.outputs.tags }}
-      #     platforms: linux/amd64,linux/arm/v7,linux/arm64
+      #     platforms: linux/amd64,linux/arm64
       #     cache-from: type=gha
       #     cache-to: type=gha,mode=max
 
@@ -133,7 +133,6 @@ jobs:
           echo ">> Building fat images locally for ${VER}..."
           docker buildx build --platform linux/amd64  -t ghcr.io/${{ github.repository }}:${VER}-amd64  --load .
           docker buildx build --platform linux/arm64  -t ghcr.io/${{ github.repository }}:${VER}-arm64  --load .
-          docker buildx build --platform linux/arm/v7 -t ghcr.io/${{ github.repository }}:${VER}-armv7  --load .
 
       # 2) Slim per-arch — enable HTTP probes to Chromedriver on :9515/status
       - name: Slim all (overwrite with HTTP probes)
@@ -163,14 +162,6 @@ jobs:
             --http-probe-cmd "http://localhost:9515/status" \
             --publish-port 9515
 
-          echo ">> Slimming armv7 (HTTP probe to :9515/status)..."
-          docker-slim build \
-            --target "ghcr.io/${{ github.repository }}:${VER}-armv7" \
-            --http-probe true \
-            --http-probe-ports 9515 \
-            --http-probe-cmd "http://localhost:9515/status" \
-            --publish-port 9515
-
       # 3) Push slim per-arch + create multi-arch manifests for ALL metadata tags (same tags as before)
       - name: Push (per-arch) + Multi-arch manifests (GHCR & Docker Hub)
         if: github.event_name != 'pull_request'
@@ -184,12 +175,12 @@ jobs:
           VER="${VERSION:-beta-${GITHUB_SHA::12}}"
 
           echo ">> Pushing per-arch slim images to GHCR..."
-          for A in amd64 arm64 armv7; do
+          for A in amd64 arm64; do
             docker push "${REPO_GHCR}:${VER}-${A}"
           done
 
           echo ">> Mirroring per-arch slim images to Docker Hub..."
-          for A in amd64 arm64 armv7; do
+          for A in amd64 arm64; do
             docker tag  "${REPO_GHCR}:${VER}-${A}" "${REPO_DH}:${VER}-${A}"
             docker push "${REPO_DH}:${VER}-${A}"
           done
@@ -208,15 +199,13 @@ jobs:
 
             SRC_AMD64="${REG}/${REPO}:${VER}-amd64"
             SRC_ARM64="${REG}/${REPO}:${VER}-arm64"
-            SRC_ARMV7="${REG}/${REPO}:${VER}-armv7"
 
             echo ">> Manifest ${REG}/${REPO}:${TAG}"
             docker manifest create "${REG}/${REPO}:${TAG}" \
-              "${SRC_AMD64}" "${SRC_ARM64}" "${SRC_ARMV7}" || true
+              "${SRC_AMD64}" "${SRC_ARM64}" || true
 
             docker manifest annotate "${REG}/${REPO}:${TAG}" "${SRC_AMD64}" --os linux --arch amd64 || true
             docker manifest annotate "${REG}/${REPO}:${TAG}" "${SRC_ARM64}" --os linux --arch arm64 || true
-            docker manifest annotate "${REG}/${REPO}:${TAG}" "${SRC_ARMV7}" --os linux --arch arm  || true
 
             docker manifest push "${REG}/${REPO}:${TAG}"
           done < /tmp/tags_list
