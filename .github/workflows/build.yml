@@ -135,7 +135,7 @@ jobs:
           docker buildx build --platform linux/arm64  -t ghcr.io/${{ github.repository }}:${VER}-arm64  --load .
           docker buildx build --platform linux/arm/v7 -t ghcr.io/${{ github.repository }}:${VER}-armv7  --load .
 
-      # 2) Slim per-arch (overwrite) — enable HTTP probes to Chromedriver on :9515/status
+      # 2) Slim per-arch — enable HTTP probes to Chromedriver on :9515/status
       - name: Slim all (overwrite with HTTP probes)
         if: github.event_name != 'pull_request'
         env:
@@ -150,7 +150,6 @@ jobs:
           echo ">> Slimming amd64 (HTTP probe to :9515/status)..."
           docker-slim build \
             --target "ghcr.io/${{ github.repository }}:${VER}-amd64" \
-            --overwrite true \
             --http-probe true \
             --http-probe-ports 9515 \
             --http-probe-cmd "http://localhost:9515/status" \
@@ -159,7 +158,6 @@ jobs:
           echo ">> Slimming arm64 (HTTP probe to :9515/status)..."
           docker-slim build \
             --target "ghcr.io/${{ github.repository }}:${VER}-arm64" \
-            --overwrite true \
             --http-probe true \
             --http-probe-ports 9515 \
             --http-probe-cmd "http://localhost:9515/status" \
@@ -168,7 +166,6 @@ jobs:
           echo ">> Slimming armv7 (HTTP probe to :9515/status)..."
           docker-slim build \
             --target "ghcr.io/${{ github.repository }}:${VER}-armv7" \
-            --overwrite true \
             --http-probe true \
             --http-probe-ports 9515 \
             --http-probe-cmd "http://localhost:9515/status" \
