@@ -145,12 +145,7 @@ jobs:
           VER="${VERSION:-beta-${GITHUB_SHA::12}}"
 
           echo ">> Installing SlimToolkit (docker-slim) binary..."
-          SLIM_VERSION="1.41.7"  # pin; change if you need a newer release
-          curl -fsSL -o /tmp/slim.tgz "https://github.com/slimtoolkit/slim/releases/download/${SLIM_VERSION}/dist_linux.tar.gz"
-          tar -xzf /tmp/slim.tgz -C /tmp
-          # Find and install docker-slim binary
-          SLIM_BIN="$(find /tmp -type f -name 'docker-slim' | head -n1)"
-          sudo install -m 0755 "$SLIM_BIN" /usr/local/bin/docker-slim
+          curl -sL https://raw.githubusercontent.com/slimtoolkit/slim/master/scripts/install-slim.sh | sudo -E bash -
 
           echo ">> Slimming amd64 (HTTP probe to :9515/status)..."
           docker-slim build \
