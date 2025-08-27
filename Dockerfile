@@ -1,8 +1,5 @@
 FROM alpine:3.22
 
-LABEL Maintainer="Ernesto Serrano <info@ernesto.es>" \
-      Description="Lightweight container with Chromium browser & ChromeDriver based on Alpine Linux."
-
 LABEL org.opencontainers.image.title="Chromium + ChromeDriver (Alpine)"
 LABEL org.opencontainers.image.description="Headless Chromium with ChromeDriver on Alpine Linux."
 LABEL org.opencontainers.image.authors="Ernesto Serrano <info@ernesto.es>"
