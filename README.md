@@ -1,4 +1,4 @@
-# Docker Chromium + ChromeDriver on Alpine Linux 3.22
+# Docker Chromium + ChromeDriver on Alpine Linux
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/erseco/alpine-chromedriver.svg)](https://hub.docker.com/r/erseco/alpine-chromedriver/)
 ![Docker Image Size](https://img.shields.io/docker/image-size/erseco/alpine-chromedriver)
