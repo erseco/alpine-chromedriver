@@ -80,6 +80,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set TAG
+        id: vars
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
       # Lint Dockerfile
       - name: Hadolint Action
         uses: hadolint/hadolint-action@v3.1.0
@@ -99,10 +108,12 @@ jobs:
       - name: Debug Build
         if: github.event_name == 'pull_request'
         run: |
-          docker buildx build --load .
+          docker buildx build --load --build-arg TAG=${{ steps.vars.outputs.tag }} .
 
       # Test the built image
       - name: Test
+        env:
+          TAG: ${{ steps.vars.outputs.tag }}
         run: |
           docker compose version
           docker compose --file docker-compose.test.yml up --exit-code-from sut --timeout 10 --build
@@ -118,6 +129,8 @@ jobs:
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            TAG=${{ steps.vars.outputs.tag }}
 
       # Run Trivy vulnerability scanner ── only tags on main
       - name: Run Trivy vulnerability scanner

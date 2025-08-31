@@ -1,4 +1,5 @@
-FROM alpine:3.22
+ARG TAG=latest
+FROM alpine:${TAG}
 
 LABEL org.opencontainers.image.title="Chromium + ChromeDriver (Alpine)"
 LABEL org.opencontainers.image.description="Headless Chromium with ChromeDriver on Alpine Linux."

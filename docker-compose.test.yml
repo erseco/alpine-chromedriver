@@ -1,11 +1,14 @@
 ---
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        - TAG
     ports:
       - "9515:9515"
   sut:
-    image: alpine:3.22
+    image: alpine:${TAG:-latest}
     depends_on:
       - app
     command: ["/tmp/run_tests.sh"]
