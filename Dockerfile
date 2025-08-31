@@ -45,7 +45,8 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=10s --retries=3 \
 # Use dumb-init
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Default command: ChromeDriver verbose y orígenes permitidos
+# Default CMD to start ChromeDriver with verbose logging, all origins allowed,
+# no IP restrictions, listening on port 9515, and logging output to stdout
 CMD ["/usr/bin/chromedriver", \
      "--port=9515", \
      "--allowed-origins=*", \
