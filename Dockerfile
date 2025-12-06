@@ -1,4 +1,4 @@
-ARG TAG=latest
+ARG TAG=3.23
 FROM alpine:${TAG}
 
 LABEL org.opencontainers.image.title="Chromium + ChromeDriver (Alpine)"

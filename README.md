@@ -2,7 +2,7 @@
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/erseco/alpine-chromedriver.svg)](https://hub.docker.com/r/erseco/alpine-chromedriver/)
 ![Docker Image Size](https://img.shields.io/docker/image-size/erseco/alpine-chromedriver)
-![alpine 3.22](https://img.shields.io/badge/alpine-3.22-brightgreen.svg)
+![alpine 3.23](https://img.shields.io/badge/alpine-3.23-brightgreen.svg)
 ![chromium](https://img.shields.io/badge/chromium-latest-brightgreen.svg)
 ![chromedriver](https://img.shields.io/badge/chromedriver-latest-brightgreen.svg)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -13,7 +13,7 @@ Repository: [https://github.com/erseco/alpine-chromedriver](https://github.com/e
 
 * Built on the lightweight Alpine Linux distribution
 * Includes both Chromium and ChromeDriver
-* Small Docker image size
+* Compact Docker image size (~300MB)
 * Runs under non-root user (`nobody`)
 * Multi-arch support (amd64, arm64, arm/v7)
 * Ready for Selenium, Puppeteer, Playwright or direct WebDriver usage
