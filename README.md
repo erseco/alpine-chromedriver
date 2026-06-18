@@ -2,7 +2,7 @@
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/erseco/alpine-chromedriver.svg)](https://hub.docker.com/r/erseco/alpine-chromedriver/)
 ![Docker Image Size](https://img.shields.io/docker/image-size/erseco/alpine-chromedriver)
-![alpine 3.23](https://img.shields.io/badge/alpine-3.23-brightgreen.svg)
+![alpine 3.24](https://img.shields.io/badge/alpine-3.24-brightgreen.svg)
 ![chromium](https://img.shields.io/badge/chromium-latest-brightgreen.svg)
 ![chromedriver](https://img.shields.io/badge/chromedriver-latest-brightgreen.svg)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue.svg)

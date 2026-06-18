@@ -1,4 +1,4 @@
-ARG TAG=3.23
+ARG TAG=3.24
 FROM alpine:${TAG}
 
 LABEL org.opencontainers.image.title="Chromium + ChromeDriver (Alpine)"
