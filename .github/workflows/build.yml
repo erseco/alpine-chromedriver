@@ -5,7 +5,8 @@ on:
     branches:
       - main # beta
     tags:
-      - '[0-9]+\.[0-9]+\.[0-9]+' # 3.20.7, 3.21.2, 3.22.0… avoid tagging without patch
+      - '[0-9]+\.[0-9]+\.[0-9]+' # 3.24.1
+      - '[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+' # 3.24.1-r1
   pull_request:
 
 jobs:
@@ -15,7 +16,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
-      
+
     steps:
       # Checkout the code
       - name: Checkout
@@ -30,9 +31,44 @@ jobs:
         run: |
           git fetch origin main --depth=1
           if git merge-base --is-ancestor origin/main "$GITHUB_SHA"; then
-            echo "is_main=true"  >> "$GITHUB_OUTPUT"
+            echo "is_main=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_main=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Resolve the Alpine base version and Docker image tags
+      - name: Resolve versions
+        id: vars
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" != "tag" ]]; then
+            echo "alpine_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "image_tag=" >> "$GITHUB_OUTPUT"
+            echo "floating_tag=" >> "$GITHUB_OUTPUT"
+            echo "minor_tag=" >> "$GITHUB_OUTPUT"
+            echo "is_revision=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tag="${{ github.ref_name }}"
+          if [[ ! "$tag" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-r[0-9]+)?$ ]]; then
+            echo "Unsupported tag format: $tag" >&2
+            exit 1
+          fi
+
+          alpine_tag="${BASH_REMATCH[1]}"
+          revision="${BASH_REMATCH[2]:-}"
+
+          echo "alpine_tag=$alpine_tag" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "minor_tag=${alpine_tag%.*}" >> "$GITHUB_OUTPUT"
+
+          if [[ -n "$revision" ]]; then
+            echo "floating_tag=$alpine_tag" >> "$GITHUB_OUTPUT"
+            echo "is_revision=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "floating_tag=" >> "$GITHUB_OUTPUT"
+            echo "is_revision=false" >> "$GITHUB_OUTPUT"
           fi
 
       # Extract metadata and prepare tags
@@ -44,14 +80,16 @@ jobs:
             ghcr.io/${{ github.repository }}
             docker.io/${{ github.repository }}
           tags: |
-            # Always from a tag push -> 3.20.7  y  3.20
-            type=semver,pattern={{version}},enable=${{ github.ref_type == 'tag' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ github.ref_type == 'tag' }}
-            # latest only if tag belongs to main
+            # Immutable tag from the Git ref, for example 3.24.1-r1
+            type=raw,value=${{ steps.vars.outputs.image_tag }},enable=${{ github.ref_type == 'tag' }}
+            # Floating patch alias for revision tags, for example 3.24.1
+            type=raw,value=${{ steps.vars.outputs.floating_tag }},enable=${{ steps.vars.outputs.is_revision == 'true' }}
+            # Floating Alpine minor alias, for example 3.24
+            type=raw,value=${{ steps.vars.outputs.minor_tag }},enable=${{ github.ref_type == 'tag' }}
+            # latest only if the tag belongs to main
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' && steps.mainline.outputs.is_main == 'true' }}
-            # beta on each push to main (no tag)
+            # beta on each push to main without a tag
             type=raw,value=beta,enable=${{ github.ref == 'refs/heads/main' }}
-
 
       # Set up QEMU for multi-platform builds
       - name: Set up QEMU
@@ -80,15 +118,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set TAG
-        id: vars
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=latest" >> $GITHUB_OUTPUT
-          fi
-
       # Lint Dockerfile
       - name: Hadolint Action
         uses: hadolint/hadolint-action@v3.3.0
@@ -103,17 +132,16 @@ jobs:
           sarif_file: hadolint-results.sarif
           category: hadolint-dockerfile
 
-
       # Debug Build for PRs
       - name: Debug Build
         if: github.event_name == 'pull_request'
         run: |
-          docker buildx build --load --build-arg TAG=${{ steps.vars.outputs.tag }} .
+          docker buildx build --load --build-arg TAG=${{ steps.vars.outputs.alpine_tag }} .
 
       # Test the built image
       - name: Test
         env:
-          TAG: ${{ steps.vars.outputs.tag }}
+          TAG: ${{ steps.vars.outputs.alpine_tag }}
         run: |
           docker compose version
           docker compose --file docker-compose.test.yml up --exit-code-from sut --timeout 10 --build
@@ -130,18 +158,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            TAG=${{ steps.vars.outputs.tag }}
+            TAG=${{ steps.vars.outputs.alpine_tag }}
 
-      # Run Trivy vulnerability scanner ── only tags on main
+      # Run Trivy vulnerability scanner only for tags on main
       - name: Run Trivy vulnerability scanner
         if: github.ref_type == 'tag' && steps.mainline.outputs.is_main == 'true'
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }}
+          image-ref: ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.image_tag }}
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
-
 
       # Update Docker Hub Description
       - name: Docker Hub Description
@@ -151,4 +178,3 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           short-description: ${{ github.event.repository.description }}
-
