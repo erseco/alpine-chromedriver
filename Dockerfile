@@ -43,14 +43,16 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=10s --retries=3 \
   CMD curl --silent --fail --connect-timeout 5 -H "Origin: http://localhost" http://127.0.0.1:9515/status \
     | grep -q '"ready":[[:space:]]*true' || exit 1
 
+# Run ChromeDriver as a non-root user
+USER nobody:nobody
+
 # Use dumb-init
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Default CMD to start ChromeDriver with verbose logging, all origins allowed,
-# no IP restrictions, listening on port 9515, and logging output to stdout
+# no IP restrictions, listening on port 9515, and logging to stderr
 CMD ["/usr/bin/chromedriver", \
      "--port=9515", \
      "--allowed-origins=*", \
      "--whitelisted-ips=", \
-     "--verbose", \
-     "--log-path=-"]
+     "--verbose"]
