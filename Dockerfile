@@ -50,10 +50,9 @@ USER nobody:nobody
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Default CMD to start ChromeDriver with verbose logging, all origins allowed,
-# no IP restrictions, listening on port 9515, and logging output to stdout
+# no IP restrictions, listening on port 9515, and logging to stderr
 CMD ["/usr/bin/chromedriver", \
      "--port=9515", \
      "--allowed-origins=*", \
      "--whitelisted-ips=", \
-     "--verbose", \
-     "--log-path=-"]
+     "--verbose"]
