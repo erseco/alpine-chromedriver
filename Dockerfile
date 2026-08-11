@@ -44,7 +44,7 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=10s --retries=3 \
     | grep -q '"ready":[[:space:]]*true' || exit 1
 
 # Run ChromeDriver as a non-root user
-USER nobody:nobody
+USER 65534:65534
 
 # Use dumb-init
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
