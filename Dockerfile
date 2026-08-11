@@ -40,8 +40,7 @@ EXPOSE 9515
 
 # Healthcheck: verifica endpoint y "ready": true
 HEALTHCHECK --interval=30s --timeout=15s --start-period=10s --retries=3 \
-  CMD curl --silent --fail --connect-timeout 5 -H "Origin: http://localhost" http://127.0.0.1:9515/status \
-    | grep -q '"ready":[[:space:]]*true' || exit 1
+  CMD ["/bin/sh", "-c", "curl --silent --fail --connect-timeout 5 -H 'Origin: http://localhost' http://127.0.0.1:9515/status | grep -q '\"ready\":[[:space:]]*true' || exit 1"]
 
 # Run ChromeDriver as a non-root user
 USER nobody:nobody
